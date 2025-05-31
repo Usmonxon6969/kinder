@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ user_obj.username }} — Delete User{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold text-danger"><i class="fas fa-user-times me-2"></i>Delete User</h2>
+        <p class="text-muted mb-0">Warning: this action cannot be undone</p>
+    </div>
+    <a href="{% url 'user-list' %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i>Back
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow border border-danger">
+            <div class="card-header bg-danger text-white">
+                <i class="fas fa-exclamation-triangle me-2"></i>Are you sure you want to delete?
+            </div>
+            <div class="card-body">
+                <p class="lead mb-3">Do you really want to delete the account of <strong>{{ user_obj.username }}</strong>?</p>
+
+                <ul class="list-group list-group-flush mb-4">
+                    <li class="list-group-item d-flex justify-content-between"><strong>Full Name:</strong><span>{{ user_obj.get_full_name|default:"—" }}</span></li>
+                    <li class="list-group-item d-flex justify-content-between"><strong>Email:</strong><span>{{ user_obj.email|default:"—" }}</span></li>
+                    <li class="list-group-item d-flex justify-content-between"><strong>Role:</strong><span>{{ user_obj.get_role_display }}</span></li>
+                    <li class="list-group-item d-flex justify-content-between"><strong>Status:</strong>
+                        <span>
+                            {% if user_obj.is_active %}
+                                <span class="text-success">Active</span>
+                            {% else %}
+                                <span class="text-muted">Inactive</span>
+                            {% endif %}
+                        </span>
+                    </li>
+                </ul>
+
+                {% if user_obj.served_meals.exists %}
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    This user has served <strong>{{ user_obj.served_meals.count }}</strong> meals. The meal history will remain, but the user will no longer be able to access the system.
+                </div>
+                {% endif %}
+
+                {% if user_obj == request.user %}
+                <div class="alert alert-danger">
+                    <i class="fas fa-ban me-2"></i>
+                    This is your own account. Once deleted, you will be logged out and unable to log in again.
+                </div>
+                {% endif %}
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <a href="{% url 'user-list' %}" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-trash me-1"></i>Yes, Delete
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

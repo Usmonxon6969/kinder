@@ -1,0 +1,197 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ meal.name }} - Kindergarten Meal System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 text-primary">
+        <i class="fas fa-drumstick-bite me-2"></i>{{ meal.name }}
+    </h1>
+    <div class="d-flex gap-2">
+        {% if can_be_served %}
+        <a href="{% url 'serve-meal' meal.id %}" class="btn btn-success btn-sm">
+            <i class="fas fa-utensils me-1"></i>Serve
+        </a>
+        {% else %}
+        <button class="btn btn-secondary btn-sm" disabled title="{{ serve_message }}">
+            <i class="fas fa-utensils me-1"></i>Cannot Serve
+        </button>
+        {% endif %}
+
+        {% if user.is_admin or user.is_manager %}
+        <a href="{% url 'meal-update' meal.id %}" class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-edit me-1"></i>Edit
+        </a>
+        <a href="{% url 'meal-delete' meal.id %}" class="btn btn-outline-danger btn-sm">
+            <i class="fas fa-trash me-1"></i>Delete
+        </a>
+        {% endif %}
+
+        <a href="{% url 'meal-list' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-arrow-left me-1"></i>Back
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Meal Info -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-light fw-bold">
+                <i class="fas fa-info-circle me-2 text-secondary"></i>Meal Details
+            </div>
+            <div class="card-body">
+                {% if meal.description %}
+                <p class="mb-3">{{ meal.description }}</p>
+                <hr>
+                {% endif %}
+
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Created by:</span><span>{{ meal.created_by.username }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Created at:</span><span>{{ meal.created_at|date:"M d, Y H:i" }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Last updated:</span><span>{{ meal.updated_at|date:"M d, Y H:i" }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Total weight per portion:</span><span>{{ meal.get_total_ingredients_weight }}g</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <span class="fw-bold">Max Portions:</span>
+                    <span class="badge bg-{% if max_portions > 0 %}success{% else %}danger{% endif %} fs-5">
+                        {{ max_portions }}
+                    </span>
+                </div>
+
+                {% if not can_be_served %}
+                <div class="alert alert-warning mt-3">
+                    <i class="fas fa-exclamation-triangle me-1"></i>{{ serve_message }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Ingredient Table -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-light fw-bold">
+                <i class="fas fa-list me-2 text-secondary"></i>Ingredient List
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-bordered mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Ingredient</th>
+                            <th>Per Portion</th>
+                            <th>Available</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for mi in meal.ingredients.all %}
+                        <tr>
+                            <td><a href="{% url 'ingredient-detail' mi.ingredient.id %}">{{ mi.ingredient.name }}</a></td>
+                            <td>{{ mi.quantity }}g</td>
+                            <td>{{ mi.ingredient.current_quantity }}g</td>
+                            <td>
+                                {% if mi.ingredient.current_quantity >= mi.quantity %}
+                                <span class="text-success"><i class="fas fa-check-circle me-1"></i>Available</span>
+                                {% else %}
+                                <span class="text-danger"><i class="fas fa-times-circle me-1"></i>Insufficient</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-3">No ingredients assigned</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Servings -->
+<div class="card shadow-sm">
+    <div class="card-header d-flex justify-content-between align-items-center bg-light">
+        <span><i class="fas fa-history me-2 text-primary"></i>Recent Servings</span>
+        <span class="badge bg-primary">Total: {{ total_servings }} portions</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Date & Time</th>
+                        <th>Portions</th>
+                        <th>Served By</th>
+                        <th>Note</th>
+                    </tr>
+                </thead>
+                <tbody id="recent-servings">
+                    {% for serving in recent_servings %}
+                    <tr>
+                        <td>{{ serving.serving_date|date:"M d, Y H:i" }}</td>
+                        <td>{{ serving.servings }}</td>
+                        <td>{{ serving.served_by.username }}</td>
+                        <td>{{ serving.notes|default:"-" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-4">No servings yet</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const inventorySocket = new WebSocket('ws://' + window.location.host + '/ws/inventory/');
+const mealServingSocket = new WebSocket('ws://' + window.location.host + '/ws/meal-servings/');
+
+inventorySocket.onmessage = e => {
+    const data = JSON.parse(e.data);
+    if (data.type === 'inventory_update') {
+        window.location.reload();
+    }
+};
+
+mealServingSocket.onmessage = e => {
+    const data = JSON.parse(e.data);
+    if (data.type === 'meal_served' && data.meal_id === {{ meal.id }}) {
+        updateRecentServings(data);
+        setTimeout(() => window.location.reload(), 2000);
+    } else if (data.type === 'portions_update' && data.meal_id === {{ meal.id }}) {
+        const badge = document.getElementById('meal-{{ meal.id }}-portions');
+        badge.textContent = data.max_portions;
+        badge.className = `badge bg-${data.max_portions > 0 ? 'success' : 'danger'} fs-5`;
+    }
+};
+
+function updateRecentServings(data) {
+    const tbody = document.getElementById('recent-servings');
+    const noRow = tbody.querySelector('td[colspan="4"]');
+    if (noRow) noRow.parentNode.remove();
+
+    const row = document.createElement('tr');
+    const date = new Date(data.timestamp);
+    const formatted = `${date.toLocaleString('default', { month: 'short' })} ${date.getDate()}, ${date.getFullYear()} ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
+    row.innerHTML = `
+        <td>${formatted}</td>
+        <td>${data.servings}</td>
+        <td>${data.served_by}</td>
+        <td>-</td>
+    `;
+    tbody.insertBefore(row, tbody.firstChild);
+}
+</script>
+{% endblock %}

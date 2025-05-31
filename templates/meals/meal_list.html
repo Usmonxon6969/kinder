@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+{% load common_tags %}
+
+{% block title %}Meals - Kindergarten Meal System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-0 text-primary"><i class="fas fa-utensils me-2"></i>Meals</h2>
+        <p class="text-muted small">Available meals and their status</p>
+    </div>
+    <div class="d-flex gap-2">
+        {% if user.is_admin or user.is_manager %}
+        <a href="{% url 'meal-create' %}" class="btn btn-outline-success btn-sm">
+            <i class="fas fa-plus me-1"></i>New Meal
+        </a>
+        {% endif %}
+        <a href="{% url 'serving-list' %}" class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-clock-rotate-left me-1"></i>Serving History
+        </a>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center bg-light">
+    <span><i class="fas fa-search me-2"></i>Filter Meals</span>
+    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse">
+      <i class="fas fa-filter"></i>
+    </button>
+  </div>
+  <div class="collapse show" id="filterCollapse">
+    <div class="card-body">
+      <form method="get" class="row g-3">
+        <div class="col-md-4">
+          <label for="name" class="form-label">Name</label>
+          <input type="text" class="form-control" id="name" name="name" value="{{ request.GET.name|default:'' }}">
+        </div>
+        <div class="col-md-4">
+          <label for="status" class="form-label">Status</label>
+          <select class="form-select" id="status" name="status">
+            <option value="">All</option>
+            <option value="available" {% if request.GET.status == 'available' %}selected{% endif %}>Available</option>
+            <option value="unavailable" {% if request.GET.status == 'unavailable' %}selected{% endif %}>Unavailable</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label for="sort" class="form-label">Sort By</label>
+          <select class="form-select" id="sort" name="sort">
+            <option value="name" {% if request.GET.sort == 'name' %}selected{% endif %}>Name</option>
+            <option value="portions" {% if request.GET.sort == 'portions' %}selected{% endif %}>Portions</option>
+            <option value="newest" {% if request.GET.sort == 'newest' %}selected{% endif %}>Newest</option>
+          </select>
+        </div>
+        <div class="col-12 d-flex justify-content-end gap-2">
+          <button type="submit" class="btn btn-primary">Apply Filters</button>
+          <a href="{% url 'meal-list' %}" class="btn btn-outline-secondary">Clear</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Meals Grid -->
+<div class="row g-4">
+    {% if meals %}
+        {% for meal in meals %}
+        <div class="col-md-6 col-xl-4">
+            <div class="card border-0 shadow-sm h-100 position-relative">
+                <div class="card-body pb-0">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="mb-0 text-truncate" title="{{ meal.name }}">{{ meal.name }}</h5>
+                        <span class="badge bg-{{ meal.can_be_served_now|yesno:"success,warning text-dark" }}">
+                            {% if meal.can_be_served_now %}Available{% else %}Insufficient{% endif %}
+                        </span>
+                    </div>
+
+                    {% if meal.description %}
+                    <p class="text-muted small">{{ meal.description|truncatechars:100 }}</p>
+                    {% endif %}
+
+                    <ul class="list-unstyled small mb-3">
+                        {% for ing in meal.ingredients.all|slice:":3" %}
+                        <li><i class="fas fa-leaf text-success me-2"></i>{{ ing.ingredient.name }} ({{ ing.quantity }}g)</li>
+                        {% endfor %}
+                        {% if meal.ingredients.count > 3 %}
+                        <li class="text-muted">...and {{ meal.ingredients.count|add:"-3" }} more</li>
+                        {% endif %}
+                    </ul>
+
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">Portions:</small>
+                        <span id="meal-{{ meal.id }}-portions"
+                            class="badge {% if meal.possible_portions > 0 %}bg-primary{% else %}bg-secondary{% endif %}">
+                            {{ meal.possible_portions }}
+                        </span>
+                    </div>
+                </div>
+                <div class="card-footer bg-white border-0 pt-3 pb-4">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'meal-detail' meal.id %}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-eye me-1"></i>View
+                        </a>
+                        {% if meal.can_be_served_now %}
+                        <a href="{% url 'serve-meal' meal.id %}" class="btn btn-sm btn-success">
+                            <i class="fas fa-utensils me-1"></i>Serve
+                        </a>
+                        {% else %}
+                        <button class="btn btn-sm btn-secondary" disabled title="{{ meal.can_be_served_message }}">
+                            <i class="fas fa-utensils me-1"></i>Cannot Serve
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="col-12">
+            <div class="alert alert-info text-center">
+                <i class="fas fa-info-circle me-2"></i>No meals found
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item"><a class="page-link" href="?page=1{{ request.GET.urlencode|cut:'page=' }}">«</a></li>
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{{ request.GET.urlencode|cut:'page=' }}">‹</a></li>
+        {% endif %}
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+            <li class="page-item"><a class="page-link" href="?page={{ num }}{{ request.GET.urlencode|cut:'page=' }}">{{ num }}</a></li>
+            {% endif %}
+        {% endfor %}
+        {% if page_obj.has_next %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{{ request.GET.urlencode|cut:'page=' }}">›</a></li>
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{{ request.GET.urlencode|cut:'page=' }}">»</a></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const mealServingSocket = new WebSocket('ws://' + window.location.host + '/ws/meal-servings/');
+
+mealServingSocket.onmessage = function (e) {
+    const data = JSON.parse(e.data);
+    if (data.type === 'portions_update') {
+        const badge = document.getElementById(`meal-${data.meal_id}-portions`);
+        if (!badge) return;
+
+        badge.textContent = data.max_portions;
+        badge.className = `badge bg-${data.max_portions > 0 ? 'primary' : 'secondary'}`;
+
+        const card = badge.closest('.card');
+        const status = card.querySelector('.badge');
+        const serveBtn = card.querySelector('.btn-success');
+
+        if (data.max_portions === 0 && status && serveBtn) {
+            status.textContent = 'Insufficient';
+            status.className = 'badge bg-warning text-dark';
+            serveBtn.outerHTML = `
+                <button class="btn btn-sm btn-secondary" disabled title="Not enough ingredients">
+                    <i class="fas fa-utensils me-1"></i>Cannot Serve
+                </button>
+            `;
+        }
+    }
+};
+</script>
+{% endblock %}

@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  .card-bg-gradient { background: linear-gradient(135deg, #FF6B6B, #FFD93D); }
+  .card-bg-blue { background: linear-gradient(135deg, #4ECDC4, #556270); }
+  .card-bg-purple { background: linear-gradient(135deg, #9D50BB, #6E48AA); }
+  .card-bg-green { background: linear-gradient(135deg, #00b894, #55efc4); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto p-6">
+
+  <!-- Dashboard Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="p-5 rounded-2xl shadow-lg card-bg-gradient text-white">
+      <div class="text-3xl font-bold">{{ today_meals_count }}</div>
+      <div class="mt-2 text-lg opacity-80">Today's Meals</div>
+    </div>
+    <div class="p-5 rounded-2xl shadow-lg card-bg-blue text-white">
+      <div class="text-3xl font-bold">{{ week_servings_count }}</div>
+      <div class="mt-2 text-lg opacity-80">Weekly Servings</div>
+    </div>
+    <div class="p-5 rounded-2xl shadow-lg card-bg-purple text-white">
+      <div id="ingredient-count" class="text-3xl font-bold">0</div>
+      <div class="mt-2 text-lg opacity-80">Total Ingredients</div>
+    </div>
+    <div class="p-5 rounded-2xl shadow-lg card-bg-green text-white">
+      <div class="text-3xl font-bold">{% if current_report %}{{ current_report.discrepancy_rate }}%{% else %}N/A{% endif %}</div>
+      <div class="mt-2 text-lg opacity-80">Discrepancy Rate</div>
+    </div>
+  </div>
+
+  <!-- Low Ingredients + Recent Servings -->
+  <div class="flex flex-col lg:flex-row gap-8 mb-10">
+    <div class="flex-1 bg-white rounded-2xl shadow-lg p-6">
+      <h3 class="text-xl font-semibold mb-4">Low Ingredients</h3>
+      {% if low_ingredients %}
+      <ul class="space-y-3">
+        {% for ingredient in low_ingredients %}
+        <li class="flex justify-between items-center">
+          <span class="font-medium">{{ ingredient.name }}</span>
+          <span class="text-gray-500">{{ ingredient.current_quantity }}g</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="text-gray-400 text-center">No low ingredients</div>
+      {% endif %}
+    </div>
+    <div class="flex-1 bg-white rounded-2xl shadow-lg p-6 overflow-x-auto">
+      <h3 class="text-xl font-semibold mb-4">Recent Servings</h3>
+      <table class="min-w-full text-left">
+        <thead class="border-b">
+          <tr>
+            <th class="py-2">Meal</th>
+            <th class="py-2">Portions</th>
+            <th class="py-2">User</th>
+            <th class="py-2">Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if recent_servings %}
+            {% for serving in recent_servings %}
+            <tr class="border-b hover:bg-gray-50">
+              <td class="py-2">{{ serving.meal.name }}</td>
+              <td class="py-2">{{ serving.servings }}</td>
+              <td class="py-2">{{ serving.served_by.username }}</td>
+              <td class="py-2">{{ serving.serving_date|date:"d-m H:i" }}</td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="4" class="py-4 text-center text-gray-400">Nothing to show</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+    <div class="bg-white p-6 rounded-2xl shadow-lg">
+      <h3 class="text-lg font-semibold mb-4">Ingredient Distribution (Pie)</h3>
+      <canvas id="ingredientPieChart" height="200"></canvas>
+    </div>
+    <div class="bg-white p-6 rounded-2xl shadow-lg">
+      <h3 class="text-lg font-semibold mb-4">Meal Statistics (Bar)</h3>
+      <canvas id="mealBarChart" height="200"></canvas>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    // Pie Chart: Top Ingredients
+    fetch('/reports/api/top-ingredients/')
+      .then(res => res.json())
+      .then(data => {
+        new Chart(document.getElementById('ingredientPieChart'), {
+          type: 'pie',
+          data: {
+            labels: data.labels,
+            datasets: [{
+              data: data.data,
+              backgroundColor: ['#f87171', '#60a5fa', '#34d399', '#fbbf24', '#a78bfa']
+            }]
+          }
+        });
+      });
+
+    // Bar Chart: Top Meals
+    fetch('/reports/api/top-meals/')
+      .then(res => res.json())
+      .then(data => {
+        new Chart(document.getElementById('mealBarChart'), {
+          type: 'bar',
+          data: {
+            labels: data.labels,
+            datasets: [{
+              label: 'Number of Portions',
+              data: data.data,
+              backgroundColor: '#6366f1'
+            }]
+          },
+          options: {
+            scales: { y: { beginAtZero: true } }
+          }
+        });
+      });
+
+    // Ingredient count
+    fetch('/ingredients/json/')
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('ingredient-count').textContent = data.length;
+      });
+  });
+</script>
+{% endblock %}

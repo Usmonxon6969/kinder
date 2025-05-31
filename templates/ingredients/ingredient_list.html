@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+
+{% block title %}Ingredients - Kindergarten Meal System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 text-primary"><i class="fas fa-carrot me-2"></i>Ingredients</h1>
+    {% if user.is_admin or user.is_manager %}
+    <div class="d-flex gap-2">
+        <a href="{% url 'ingredient-create' %}" class="btn btn-success">
+            <i class="fas fa-plus me-1"></i>Add
+        </a>
+        <a href="{% url 'delivery-list' %}" class="btn btn-outline-primary">
+            <i class="fas fa-truck me-1"></i>Deliveries
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Filter Section -->
+<form method="get" class="row g-3 mb-4">
+    <div class="col-md-4">
+        <label for="name" class="form-label">Ingredient Name</label>
+        <input type="text" id="name" name="name" class="form-control"
+               value="{{ request.GET.name }}">
+    </div>
+    <div class="col-md-4">
+        <label for="below_threshold" class="form-label">Status</label>
+        <select id="below_threshold" name="below_threshold" class="form-select">
+            <option value="">All</option>
+            <option value="1" {% if request.GET.below_threshold == '1' %}selected{% endif %}>
+                Below Threshold
+            </option>
+        </select>
+    </div>
+    <div class="col-md-4 d-flex align-items-end gap-2">
+        <button type="submit" class="btn btn-primary">Filter</button>
+        <a href="{% url 'ingredient-list' %}" class="btn btn-outline-secondary">Clear</a>
+    </div>
+</form>
+
+<!-- Ingredients List -->
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+    {% if ingredients %}
+        {% for ingredient in ingredients %}
+        <div class="col">
+            <div id="ingredient-{{ ingredient.id }}" class="card h-100 shadow-sm {% if ingredient.is_below_threshold %}border-danger{% endif %}">
+                <div class="card-body">
+                    <h5 class="card-title d-flex align-items-center gap-2">
+                        {% if 'milk' in ingredient.name|lower %}🥛{% elif 'apple' in ingredient.name|lower %}🍎{% elif 'carrot' in ingredient.name|lower %}🥕{% else %}🍽️{% endif %}
+                        {{ ingredient.name }}
+                    </h5>
+                    <p class="mb-1">
+                        <strong>Quantity:</strong>
+                        <span class="badge bg-{% if ingredient.is_below_threshold %}danger{% else %}success{% endif %}">
+                            {{ ingredient.current_quantity }}g
+                        </span>
+                    </p>
+                    <p class="mb-1">
+                        <strong>Status:</strong>
+                        {% if ingredient.is_below_threshold %}
+                        <span class="text-danger"><i class="fas fa-exclamation-triangle me-1"></i>Low</span>
+                        {% else %}
+                        <span class="text-success"><i class="fas fa-check-circle me-1"></i>Good</span>
+                        {% endif %}
+                    </p>
+                    <p class="text-muted small mb-2">Updated: {{ ingredient.updated_at|date:"M d, Y H:i" }}</p>
+                </div>
+                <div class="card-footer bg-white border-top-0 d-flex gap-2 flex-wrap">
+                    <a href="{% url 'ingredient-detail' ingredient.id %}" class="btn btn-sm btn-outline-primary">View</a>
+                    {% if user.is_admin or user.is_manager %}
+                    <a href="{% url 'add-ingredient-quantity' ingredient.id %}" class="btn btn-sm btn-outline-success">Add</a>
+                    <a href="{% url 'ingredient-update' ingredient.id %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                    <a href="{% url 'ingredient-delete' ingredient.id %}" class="btn btn-sm btn-outline-danger">Delete</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="col-12">
+            <div class="alert alert-info text-center">
+                <i class="fas fa-info-circle me-2"></i>No ingredients found.
+                {% if user.is_admin or user.is_manager %}
+                <div class="mt-2">
+                    <a href="{% url 'ingredient-create' %}" class="btn btn-sm btn-success">
+                        <i class="fas fa-plus me-1"></i>Add New Ingredient
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?{{ request.GET.urlencode }}&page=1">«</a>
+        </li>
+        <li class="page-item">
+            <a class="page-link" href="?{{ request.GET.urlencode }}&page={{ page_obj.previous_page_number }}">‹</a>
+        </li>
+        {% endif %}
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+            {% elif num > page_obj.number|add:'-2' and num < page_obj.number|add:'2' %}
+            <li class="page-item"><a class="page-link" href="?{{ request.GET.urlencode }}&page={{ num }}">{{ num }}</a></li>
+            {% endif %}
+        {% endfor %}
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?{{ request.GET.urlencode }}&page={{ page_obj.next_page_number }}">›</a>
+        </li>
+        <li class="page-item">
+            <a class="page-link" href="?{{ request.GET.urlencode }}&page={{ page_obj.paginator.num_pages }}">»</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+    const inventorySocket = new WebSocket(
+        'ws://' + window.location.host + '/ws/inventory/'
+    );
+
+    inventorySocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        if (data.type === 'inventory_update') {
+            updateIngredientRow(data);
+        } else if (data.type === 'low_ingredient_alert') {
+            showNotification('Warning', `${data.ingredient_name} is low (${data.current_quantity}g/${data.threshold_quantity}g)`, 'warning');
+        }
+    };
+
+    function updateIngredientRow(data) {
+        const row = document.getElementById(`ingredient-${data.ingredient_id}`);
+        if (!row) return;
+
+        const badge = row.querySelector('.badge');
+        badge.textContent = `${data.current_quantity}g`;
+        badge.className = `badge bg-${data.is_below_threshold ? 'danger' : 'success'}`;
+
+        const status = row.querySelector('.card-body p:nth-child(3) span');
+        status.innerHTML = data.is_below_threshold
+            ? '<i class="fas fa-exclamation-triangle me-1"></i>Low'
+            : '<i class="fas fa-check-circle me-1"></i>Good';
+        status.className = `text-${data.is_below_threshold ? 'danger' : 'success'}`;
+
+        row.classList.toggle('border-danger', data.is_below_threshold);
+    }
+
+    function showNotification(title, message, type) {
+        const container = document.querySelector('.position-fixed') || document.body;
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-4`;
+        alert.innerHTML = `<strong>${title}:</strong> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+        container.appendChild(alert);
+        setTimeout(() => alert.remove(), 5000);
+    }
+</script>
+{% endblock %}

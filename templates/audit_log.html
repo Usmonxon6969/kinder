@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+{% load common_tags %}
+
+{% block title %}Audit Logs - Kindergarten Meal System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 text-primary">
+        <i class="fas fa-clock-rotate-left me-2"></i>Audit Logs
+    </h1>
+</div>
+
+<!-- Filter Section -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-light">
+        <i class="fas fa-filter me-2 text-secondary"></i>Filter Logs
+    </div>
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-3">
+                <label for="start_date" class="form-label">Start Date</label>
+                <input type="date" id="start_date" name="start_date" class="form-control" value="{{ filter_params.start_date }}">
+            </div>
+            <div class="col-md-3">
+                <label for="end_date" class="form-label">End Date</label>
+                <input type="date" id="end_date" name="end_date" class="form-control" value="{{ filter_params.end_date }}">
+            </div>
+            <div class="col-md-3">
+                <label for="user" class="form-label">User</label>
+                <select name="user" id="user" class="form-select">
+                    <option value="">All Users</option>
+                    <option value="system" {% if filter_params.user == 'system' %}selected{% endif %}>System</option>
+                    {% for user in users %}
+                    <option value="{{ user.id }}" {% if filter_params.user == user.id|stringformat:"s" %}selected{% endif %}>{{ user.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="action" class="form-label">Action</label>
+                <select name="action" id="action" class="form-select">
+                    <option value="">All Actions</option>
+                    {% for value, label in action_choices %}
+                    <option value="{{ value }}" {% if filter_params.action == value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="model" class="form-label">Model</label>
+                <select name="model" id="model" class="form-select">
+                    <option value="">All Models</option>
+                    {% for ct in content_types %}
+                    <option value="{{ ct.id }}" {% if filter_params.model == ct.id|stringformat:"s" %}selected{% endif %}>{{ ct.name|capfirst }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-9 d-flex align-items-end gap-2">
+                <button type="submit" class="btn btn-primary">Apply</button>
+                <a href="{% url 'audit-log' %}" class="btn btn-outline-secondary">Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Log Table -->
+<div class="card shadow-sm">
+    <div class="card-header bg-light">
+        <i class="fas fa-list me-2 text-secondary"></i>Log Entries
+    </div>
+    <div class="card-body p-0">
+        {% if page_obj %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Time</th>
+                        <th>User</th>
+                        <th>Action</th>
+                        <th>Object</th>
+                        <th>Changes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in page_obj %}
+                    <tr>
+                        <td>{{ entry.timestamp|date:"Y-m-d H:i:s" }}</td>
+                        <td>{{ entry.actor.username|default:"System" }}</td>
+                        <td>
+                            <span class="badge bg-{% if entry.action == 0 %}success{% elif entry.action == 1 %}warning{% elif entry.action == 2 %}danger{% endif %}">
+                                {{ entry.get_action_display }}
+                            </span>
+                        </td>
+                        <td>{{ entry.content_type.name|capfirst }}: {{ entry.object_repr }}</td>
+                        <td>
+                            {% if entry.changes_dict %}
+                            <ul class="mb-0 small">
+                                {% for field, change in entry.changes_dict.items %}
+                                <li><strong>{{ field }}:</strong> {{ change.0|default:"None" }} → {{ change.1|default:"None" }}</li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}
+                            <span class="text-muted">No changes recorded</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-4">No matching logs found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <nav class="mt-3">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1">«</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">‹</a>
+                </li>
+                {% endif %}
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    {% elif num > page_obj.number|add:'-2' and num < page_obj.number|add:'2' %}
+                    <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                    {% endif %}
+                {% endfor %}
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">›</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">»</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        {% else %}
+        <div class="p-4 text-muted">No audit logs found.</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

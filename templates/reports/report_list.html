@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+{% load common_tags %}
+
+{% block title %}Reports{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-6 py-8">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold text-gray-700">📈 Monthly Reports</h1>
+    <a href="{% url 'generate-report' %}" class="bg-green-500 text-white px-4 py-2 rounded-md shadow hover:bg-green-600">
+      <i class="fas fa-plus mr-2"></i>Create New Report
+    </a>
+  </div>
+
+  <!-- Reports Table -->
+  <div class="bg-white rounded-xl shadow p-4 overflow-x-auto mb-8">
+    {% if reports %}
+    <table class="min-w-full text-sm text-left">
+      <thead class="bg-gray-100 text-gray-600 uppercase">
+        <tr>
+          <th class="px-4 py-3">Month</th>
+          <th class="px-4 py-3">Meals</th>
+          <th class="px-4 py-3">Servings</th>
+          <th class="px-4 py-3">Discrepancy</th>
+          <th class="px-4 py-3">Status</th>
+          <th class="px-4 py-3">Created</th>
+          <th class="px-4 py-3">View</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-200">
+        {% for report in reports %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-2">{{ report.period_label }}</td>
+          <td class="px-4 py-2">{{ report.total_meals_served }}</td>
+          <td class="px-4 py-2">{{ report.total_servings }}</td>
+          <td class="px-4 py-2">
+            <span class="px-2 py-1 rounded-full text-white text-xs bg-{% if report.high_discrepancy %}red-500{% elif report.discrepancy_rate > 5 %}yellow-500{% else %}green-500{% endif %}">
+              {{ report.discrepancy_rate }}%
+            </span>
+          </td>
+          <td class="px-4 py-2">
+            {% if report.high_discrepancy %}
+              <span class="text-red-600 text-sm font-semibold">⚠ High</span>
+            {% else %}
+              <span class="text-green-600 text-sm font-semibold">Normal</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-2">{{ report.generated_at|date:"Y-m-d H:i" }}</td>
+          <td class="px-4 py-2">
+            <a href="{% url 'report-detail' report.id %}" class="text-blue-600 hover:underline">
+              <i class="fas fa-eye"></i>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="text-center py-10 text-gray-500">
+      <p class="mb-3">🚫 No reports available</p>
+      <a href="{% url 'generate-report' %}" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+        Create Report
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Chart -->
+  {% if reports %}
+  <div class="bg-white p-6 rounded-xl shadow">
+    <h3 class="text-lg font-semibold mb-4 text-gray-700">
+      📊 Discrepancy Trend
+    </h3>
+    <canvas id="discrepancyChart" height="200"></canvas>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if reports %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  fetch('/reports/api/discrepancy-data/')
+    .then(response => response.json())
+    .then(data => {
+      const ctx = document.getElementById('discrepancyChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: data.map(item => item.period_label),
+          datasets: [{
+            label: 'Discrepancy (%)',
+            data: data.map(item => item.discrepancy_rate),
+            borderColor: 'rgb(255, 99, 132)',
+            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+            fill: true,
+            tension: 0.2,
+            pointRadius: 5,
+            pointHoverRadius: 7
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: { beginAtZero: true, suggestedMax: 20 }
+          }
+        }
+      });
+    });
+});
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% load common_tags %}
+
+{% block title %}Report: {{ report.period_label }}{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-6 py-8">
+  <div class="flex justify-between items-center mb-8">
+    <h1 class="text-2xl font-bold text-gray-700">
+      📊 Report: {{ report.period_label }}
+    </h1>
+    <a href="{% url 'report-list' %}" class="text-sm text-blue-600 hover:underline">
+      ← All Reports
+    </a>
+  </div>
+
+  <!-- Summary cards -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="bg-indigo-500 text-white p-6 rounded-xl shadow">
+      <p class="text-sm mb-1">Meal Types</p>
+      <h2 class="text-3xl font-bold">{{ report.total_meals_served }}</h2>
+    </div>
+    <div class="bg-green-500 text-white p-6 rounded-xl shadow">
+      <p class="text-sm mb-1">Total Servings</p>
+      <h2 class="text-3xl font-bold">{{ report.total_servings }}</h2>
+    </div>
+    <div class="bg-yellow-500 text-white p-6 rounded-xl shadow">
+      <p class="text-sm mb-1">Potential Servings</p>
+      <h2 class="text-3xl font-bold">{{ report.total_potential_servings }}</h2>
+    </div>
+    <div class="bg-red-500 text-white p-6 rounded-xl shadow">
+      <p class="text-sm mb-1">Discrepancy Rate</p>
+      <h2 class="text-3xl font-bold">{{ report.discrepancy_rate }}%</h2>
+    </div>
+  </div>
+
+  <!-- Charts Section -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+    <div class="bg-white p-6 rounded-xl shadow">
+      <h3 class="text-lg font-semibold mb-4">🥕 Ingredients: Used vs Delivered</h3>
+      <canvas id="ingredientsChart" height="200"></canvas>
+    </div>
+    <div class="bg-white p-6 rounded-xl shadow">
+      <h3 class="text-lg font-semibold mb-4">🍽️ Most Served Meals</h3>
+      <ul class="divide-y divide-gray-100">
+        {% for meal in top_meals %}
+        <li class="flex justify-between py-2">
+          <span>{{ meal.meal_name }}</span>
+          <span class="text-gray-600">{{ meal.servings_count }} servings</span>
+        </li>
+        {% empty %}
+        <li class="text-center text-gray-400 py-4">No data available</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <!-- Top Ingredients Table -->
+  <div class="bg-white p-6 rounded-xl shadow mb-10">
+    <h3 class="text-lg font-semibold mb-4">🔍 Most Used Ingredients</h3>
+    <div class="overflow-auto">
+      <table class="min-w-full table-auto text-sm text-left">
+        <thead class="bg-gray-100 text-gray-700 uppercase">
+          <tr>
+            <th class="p-3">Name</th>
+            <th class="p-3">Used</th>
+            <th class="p-3">Delivered</th>
+            <th class="p-3">Difference</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for usage in top_ingredients %}
+          <tr class="border-b hover:bg-gray-50">
+            <td class="p-3">{{ usage.ingredient_name }}</td>
+            <td class="p-3">{{ usage.quantity_used }}g</td>
+            <td class="p-3">{{ usage.quantity_delivered }}g</td>
+            <td class="p-3 text-sm font-semibold text-{% if usage.discrepancy > 0 %}green-600{% elif usage.discrepancy < 0 %}red-600{% else %}gray-500{% endif %}">
+              {{ usage.discrepancy }}g
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Discrepancy Alert -->
+  {% if report.high_discrepancy %}
+  <div class="bg-red-100 border border-red-300 text-red-800 p-4 rounded-xl">
+    <h4 class="font-bold mb-2">⚠️ High Discrepancy!</h4>
+    <p>The discrepancy is above {{ report.discrepancy_rate }}%. This may indicate ingredient waste, incorrect serving, or data entry errors.</p>
+  </div>
+  {% else %}
+  <div class="bg-green-100 border border-green-300 text-green-800 p-4 rounded-xl">
+    <h4 class="font-bold mb-2">✅ All Good</h4>
+    <p>The discrepancy rate is {{ report.discrepancy_rate }}% — within acceptable range.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const ctx = document.getElementById('ingredientsChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: [{% for usage in top_ingredients|slice:":10" %}'{{ usage.ingredient_name }}',{% endfor %}],
+      datasets: [
+        {
+          label: 'Used (g)',
+          data: [{% for usage in top_ingredients|slice:":10" %}{{ usage.quantity_used }},{% endfor %}],
+          backgroundColor: 'rgba(255, 99, 132, 0.7)'
+        },
+        {
+          label: 'Delivered (g)',
+          data: [{% for usage in top_ingredients|slice:":10" %}{{ usage.quantity_delivered }},{% endfor %}],
+          backgroundColor: 'rgba(54, 162, 235, 0.7)'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+});
+</script>
+{% endblock %}

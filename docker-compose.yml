@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    command: uvicorn kindergarten_meal_system.asgi:application --host 0.0.0.0 --port 8000
+    volumes:
+      - .:/app
+      - static_volume:/app/staticfiles
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./.env
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  db:
+    image: postgres:14
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${DB_NAME:-kindergarten_db}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+#    ports:
+#      - "5432:5432"
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+  celery_worker:
+    build: .
+    command: celery -A kindergarten_meal_system worker --loglevel=info
+    volumes:
+      - .:/app
+    env_file:
+      - ./.env
+    depends_on:
+      - web
+      - db
+      - redis
+    restart: unless-stopped
+
+  celery_beat:
+    build: .
+    command: celery -A kindergarten_meal_system beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - .:/app
+    env_file:
+      - ./.env
+    depends_on:
+      - web
+      - db
+      - redis
+      - celery_worker
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  static_volume:

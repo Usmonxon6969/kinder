@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}
+{% if form.instance.id %}Edit {{ form.instance.name }}{% else %}Add New Meal{% endif %} - Kindergarten Meal System
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ingredient-form {
+        background: #f9f9f9;
+        border: 1px solid #dee2e6;
+        padding: 1rem;
+        border-radius: .5rem;
+        margin-bottom: 1rem;
+        position: relative;
+    }
+    .delete-row {
+        position: absolute;
+        top: .5rem;
+        right: .5rem;
+        z-index: 1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 text-primary">
+        <i class="fas fa-{% if form.instance.id %}edit{% else %}plus{% endif %} me-2"></i>
+        {% if form.instance.id %}Edit Meal{% else %}Add New Meal{% endif %}
+    </h1>
+    <a href="{% url 'meal-list' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-arrow-left me-1"></i>Back to Meal List
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-light fw-bold">
+                <i class="fas fa-bowl-food me-2 text-success"></i>Meal Information
+            </div>
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            {{ form.name|as_crispy_field }}
+                        </div>
+                        <div class="col-md-12">
+                            {{ form.description|as_crispy_field }}
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <h5 class="mb-3 text-secondary"><i class="fas fa-seedling me-2"></i>Ingredients List</h5>
+                    <div class="alert alert-info small">
+                        <i class="fas fa-info-circle me-1"></i>Specify the required amount per portion.
+                    </div>
+
+                    {{ ingredients_formset.management_form }}
+
+                    <div id="ingredient-formset">
+                        {% for form in ingredients_formset.forms %}
+                        <div class="ingredient-form">
+                            {% if form.instance.pk %}{{ form.DELETE }}{% endif %}
+                            {% if form.non_field_errors %}
+                            <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                            {% endif %}
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    {{ form.ingredient|as_crispy_field }}
+                                </div>
+                                <div class="col-md-6">
+                                    {{ form.quantity|as_crispy_field }}
+                                </div>
+                            </div>
+
+                            <button type="button" class="btn btn-sm btn-outline-danger delete-row">
+                                <i class="fas fa-trash"></i>
+                            </button>
+
+                            {{ form.id }}
+                            {% if not form.instance.pk %}{{ form.meal }}{% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <button type="button" id="add-ingredient" class="btn btn-outline-success btn-sm mb-4">
+                        <i class="fas fa-plus me-1"></i>Add Ingredient
+                    </button>
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="{% url 'meal-list' %}" class="btn btn-outline-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i>Save
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const addBtn = document.getElementById("add-ingredient");
+    const formset = document.getElementById("ingredient-formset");
+
+    function setupDeleteButton(btn) {
+        btn.addEventListener("click", function () {
+            const row = this.closest(".ingredient-form");
+            const del = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+            if (del) {
+                del.checked = true;
+                row.style.display = "none";
+            } else {
+                row.remove();
+            }
+        });
+    }
+
+    document.querySelectorAll(".delete-row").forEach(setupDeleteButton);
+
+    if (addBtn && formset) {
+        addBtn.addEventListener("click", () => {
+            const forms = formset.querySelectorAll(".ingredient-form");
+            const newIndex = forms.length;
+            const totalForms = document.getElementById("id_ingredients-TOTAL_FORMS");
+
+            const lastForm = forms[forms.length - 1];
+            const newForm = lastForm.cloneNode(true);
+
+            newForm.innerHTML = newForm.innerHTML.replace(/ingredients-\d+/g, `ingredients-${newIndex}`);
+
+            newForm.querySelectorAll("input, select").forEach(input => {
+                if (!input.name.includes("id")) input.value = "";
+            });
+
+            newForm.querySelectorAll("label").forEach(label => {
+                const forAttr = label.getAttribute("for");
+                if (forAttr) label.setAttribute("for", forAttr.replace(/\d+/, newIndex));
+            });
+
+            formset.appendChild(newForm);
+            totalForms.value = newIndex + 1;
+
+            setupDeleteButton(newForm.querySelector(".delete-row"));
+        });
+    }
+});
+</script>
+{% endblock %}

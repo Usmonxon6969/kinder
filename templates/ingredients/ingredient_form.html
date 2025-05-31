@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}
+{% if form.instance.id %}Edit Ingredient - {{ form.instance.name }}{% else %}Add New Ingredient{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 text-primary">
+        <i class="fas fa-{% if form.instance.id %}edit{% else %}plus{% endif %} me-2"></i>
+        {% if form.instance.id %}Edit Ingredient{% else %}Add New Ingredient{% endif %}
+    </h1>
+    <a href="{% url 'ingredient-list' %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i>Back
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-10 col-lg-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-light fw-bold">
+                <i class="fas fa-carrot me-2 text-warning"></i>Ingredient Details
+            </div>
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            {{ form.name|as_crispy_field }}
+                        </div>
+                        {% if not form.instance.id %}
+                        <div class="col-md-6">
+                            {{ form.current_quantity|as_crispy_field }}
+                        </div>
+                        {% endif %}
+                        <div class="col-md-6">
+                            {{ form.threshold_quantity|as_crispy_field }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.unit_price|as_crispy_field }}
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <a href="{% url 'ingredient-list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-1"></i>Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i>Save
+                        </button>
+                    </div>
+                </form>
+            </div>
+            {% if form.instance.id %}
+            <div class="card-footer text-muted small">
+                <i class="fas fa-info-circle me-1"></i>
+                To update the quantity, use the "Add" button in the main list.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

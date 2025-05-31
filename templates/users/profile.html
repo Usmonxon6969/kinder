@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}My Profile - Kindergarten Meal System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold text-primary"><i class="fas fa-user-circle me-2"></i>User Profile</h2>
+        <p class="text-muted mb-0">Personal information and activity</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- User Info -->
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <i class="fas fa-id-badge me-2 text-primary"></i>Information
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between"><span class="fw-semibold">Username:</span><span>{{ user.username }}</span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span class="fw-semibold">Full Name:</span><span>{{ user.get_full_name|default:"-" }}</span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span class="fw-semibold">Email:</span><span>{{ user.email|default:"-" }}</span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span class="fw-semibold">Role:</span><span class="badge bg-primary">{{ user.get_role_display }}</span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span class="fw-semibold">Last Login:</span><span>{{ user.last_login|date:"M d, Y H:i"|default:"Never" }}</span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span class="fw-semibold">Registered On:</span><span>{{ user.date_joined|date:"M d, Y" }}</span></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity & Security -->
+    <div class="col-md-6">
+        <!-- Activity -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light">
+                <i class="fas fa-history me-2 text-primary"></i>Recent Servings
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for serving in user.served_meals.all|slice:":6" %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span><strong>{{ serving.meal.name }}</strong></span>
+                            <small class="text-muted">{{ serving.serving_date|date:"M d, Y H:i" }}</small>
+                        </div>
+                        <div class="small text-muted">{{ serving.servings }} portion{% if serving.notes %} – {{ serving.notes }}{% endif %}</div>
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item text-center text-muted py-4">
+                        No recent activity available
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Security -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <i class="fas fa-shield-alt me-2 text-danger"></i>Account Security
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Please contact the administrator to change your password.</p>
+                <div class="d-grid">
+                    <a href="{% url 'logout' %}" class="btn btn-outline-danger">
+                        <i class="fas fa-sign-out-alt me-1"></i>Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

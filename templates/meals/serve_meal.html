@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+
+{% block title %}Serve Meal: {{ meal.name }} - Kindergarten Meal System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 text-success">
+        <i class="fas fa-utensils me-2"></i>Serve Meal: {{ meal.name }}
+    </h1>
+    <a href="{% url 'meal-detail' meal.id %}" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-arrow-left me-1"></i>Back to Meal
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-10 col-lg-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-light fw-bold">
+                <i class="fas fa-bowl-food me-2 text-secondary"></i>Meal Serving Form
+            </div>
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Currently, there are enough ingredients to serve <strong>{{ max_portions }}</strong> portions.
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_servings" class="form-label">Number of Portions</label>
+                        <div class="input-group">
+                            <button type="button" class="btn btn-outline-secondary" id="decrement">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                            <input type="number" name="servings" id="id_servings"
+                                   class="form-control text-center"
+                                   value="1" min="1" max="{{ max_portions }}" required>
+                            <button type="button" class="btn btn-outline-secondary" id="increment">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div class="form-text text-muted">Maximum: {{ max_portions }} portions</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_notes" class="form-label">Note (optional)</label>
+                        <textarea name="notes" id="id_notes" class="form-control" rows="3" placeholder="Note about this meal serving..."></textarea>
+                    </div>
+
+                    <h5 class="mt-4 mb-3">Ingredients to be Used</h5>
+                    <div class="table-responsive">
+                        <table class="table table-bordered align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Ingredient</th>
+                                    <th>Per Portion</th>
+                                    <th>Total Required</th>
+                                    <th>Available</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ingredients-table">
+                                {% for meal_ingredient in meal.ingredients.all %}
+                                <tr>
+                                    <td>{{ meal_ingredient.ingredient.name }}</td>
+                                    <td>{{ meal_ingredient.quantity }}g</td>
+                                    <td id="required-{{ meal_ingredient.ingredient.id }}">{{ meal_ingredient.quantity }}g</td>
+                                    <td>{{ meal_ingredient.ingredient.current_quantity }}g</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="d-grid mt-4">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-check-circle me-2"></i>Serve Meal
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer text-muted small">
+                <i class="fas fa-info-circle me-1"></i> After serving, the required ingredients will be automatically deducted from the inventory.
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const servingsInput = document.getElementById('id_servings');
+        const decrementBtn = document.getElementById('decrement');
+        const incrementBtn = document.getElementById('increment');
+        const maxServings = {{ max_portions }};
+
+        updateRequiredQuantities(1);
+
+        decrementBtn.addEventListener('click', () => {
+            const current = parseInt(servingsInput.value);
+            if (current > 1) {
+                servingsInput.value = current - 1;
+                updateRequiredQuantities(current - 1);
+            }
+        });
+
+        incrementBtn.addEventListener('click', () => {
+            const current = parseInt(servingsInput.value);
+            if (current < maxServings) {
+                servingsInput.value = current + 1;
+                updateRequiredQuantities(current + 1);
+            }
+        });
+
+        servingsInput.addEventListener('change', () => {
+            let value = parseInt(servingsInput.value);
+            if (isNaN(value) || value < 1) value = 1;
+            else if (value > maxServings) value = maxServings;
+            servingsInput.value = value;
+            updateRequiredQuantities(value);
+        });
+
+        function updateRequiredQuantities(servings) {
+            {% for meal_ingredient in meal.ingredients.all %}
+            const reqCell = document.getElementById('required-{{ meal_ingredient.ingredient.id }}');
+            const total = {{ meal_ingredient.quantity }} * servings;
+            reqCell.textContent = total + 'g';
+            {% endfor %}
+        }
+    });
+</script>
+{% endblock %}
